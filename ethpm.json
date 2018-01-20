@@ -1,0 +1,17 @@
+{
+  "package_name": "megax",
+  "version": "0.0.1",
+  "description": "ICO & Token",
+  "authors": [
+    "Toshendra Sharma <me@toshendra.com>"
+  ],
+  "keywords": [
+    "ethereum",
+    "ICO"
+    "megax"
+  ],
+  "devDependencies": {
+    "zeppelin": "^1.0.6"
+  },
+  "license": "MIT"
+}
