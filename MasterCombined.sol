@@ -793,7 +793,8 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
   event EndsAtChanged(uint256 endAt);
 
   function Crowdsale(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, 
-  uint256 _start, uint256 _end, uint256 _minimumFundingGoal, address _tokenVestingAddress) public {
+  uint256 _start, uint256 _end, uint256 _minimumFundingGoal, address _tokenVestingAddress) public 
+  {
 
     owner = msg.sender;
 
@@ -844,6 +845,8 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
     if(getState() == State.PreFunding) {
       // Are we whitelisted for early deposit
       require(earlyParticipantWhitelist[receiver]);
+      uint256 multiplier = 10 ** token.decimals();
+      require(msg.value >= safeMul(15,multiplier) && msg.value <= safeMul(50,multiplier));
     
     } else if(getState() == State.Funding) {
       // Retail participants can only come in when the crowdsale is running
@@ -873,9 +876,6 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
 
     // Check that we did not bust the cap
     require(!isBreakingCap(weiAmount, tokenAmount, weiRaised, tokensSold));
-    // if(isBreakingCap(weiAmount, tokenAmount, weiRaised, tokensSold)) {
-    //   throw;
-    // }
 
     assignTokens(receiver, tokenAmount);
 
@@ -900,10 +900,7 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
    * @param weiPrice Price of a single full token in wei
    *
    */
-  function preallocate(address receiver, uint256 tokenAmount, uint256 weiPrice, uint256 principleLockPercentage, uint256 principleLockPeriod, uint256 bonusLockPercentage, uint256 bonusLockPeriod) public onlyAllocateAgent {
-
-    // cannot lock more than total tokens
-    require(safeAdd(principleLockPercentage,bonusLockPercentage) <= 100);
+  function preallocate(address receiver, uint256 tokenAmount, uint256 weiPrice, uint256 principleLockAmount, uint256 principleLockPeriod, uint256 bonusLockAmount, uint256 bonusLockPeriod) public onlyAllocateAgent {
 
     uint256 weiAmount = (weiPrice * tokenAmount)/10**uint256(token.decimals()); // This can be also 0, we give out tokens for free
 
@@ -913,22 +910,24 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
     investedAmountOf[receiver] = safeAdd(investedAmountOf[receiver],weiAmount);
     tokenAmountOf[receiver] = safeAdd(tokenAmountOf[receiver],tokenAmount);
 
+    // cannot lock more than total tokens
+    uint256 totalLockAmount = safeAdd(principleLockAmount, bonusLockAmount);
+    require(totalLockAmount <= tokenAmount);
+
     // assign locked token to Vesting contract
-    if (safeAdd(principleLockPercentage,bonusLockPercentage) > 0) {
+    if (totalLockAmount > 0) {
 
-      require((principleLockPercentage > 0 && principleLockPeriod > 0) || (bonusLockPercentage > 0 && bonusLockPeriod > 0));
-      
+      if (principleLockAmount > 0) {
+        require(principleLockPeriod > 0);
+      }
+      if (bonusLockAmount > 0) {
+        require(bonusLockPeriod > 0);
+      }
 
-      uint256 principleAmount = safeDiv(safeMul(tokenAmount, 100), safeAdd(bonusLockPercentage, 100));
-      uint256 bonusLockAmount = safeDiv(safeMul(bonusLockPercentage, principleAmount), 100);
-      uint256 principleLockAmount = safeDiv(safeMul(principleLockPercentage, principleAmount), 100);
-
-      uint256 totalLockAmount = safeAdd(principleLockAmount, bonusLockAmount);
       TokenVesting tokenVesting = TokenVesting(tokenVestingAddress);
       
       // to prevent minting of tokens which will be useless as vesting amount cannot be updated
       require(!tokenVesting.isVestingSet(receiver));
-      require(totalLockAmount <= tokenAmount);
       assignTokens(tokenVestingAddress,totalLockAmount);
       
       // set vesting with default schedule
@@ -949,9 +948,7 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
    */
   function investWithCustomerId(address addr, uint128 customerId) public payable {
     require(!requiredSignedAddress);
-    //if(requiredSignedAddress) throw; // Crowdsale allows only server-side signed participants
     require(customerId != 0);
-    //if(customerId == 0) throw;  // UUIDv4 sanity check
     investInternal(addr, customerId);
   }
 
@@ -1273,40 +1270,30 @@ contract BonusFinalizeAgent is FinalizeAgent, SafeMathLib {
 }
 
 /**
- * ICO crowdsale contract that is capped by amout of ether raised.
+ * ICO crowdsale contract that is capped by amout of tokens.
  *
  * - Tokens are dynamically created during the crowdsale
  *
  *
  */
-/**
- * ICO crowdsale contract that is capped by amout of ETH.
- *
- * - Tokens are dynamically created during the crowdsale
- *
- *
- */
-contract MintedEthCappedCrowdsale is Crowdsale {
+contract MintedTokenCappedCrowdsale is Crowdsale {
 
-  /* Maximum amount of wei this crowdsale can raise. */
-  uint public weiCap;
+  /* Maximum amount of tokens this crowdsale can sell. */
+  uint256 public maximumSellableTokens;
 
-  function MintedEthCappedCrowdsale(address _token, PricingStrategy _pricingStrategy, 
-    address _multisigWallet, uint256 _start, uint256 _end, uint256 _minimumFundingGoal, uint256 _weiCap, address _tokenVestingAddress) 
-    Crowdsale(_token, _pricingStrategy, _multisigWallet, _start, _end, _minimumFundingGoal, _tokenVestingAddress) public
-    { 
-      weiCap = _weiCap;
-    }
+  function MintedTokenCappedCrowdsale(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint256 _start, uint256 _end, uint256 _minimumFundingGoal, uint256 _maximumSellableTokens, address _tokenVestingAddress) Crowdsale(_token, _pricingStrategy, _multisigWallet, _start, _end, _minimumFundingGoal, _tokenVestingAddress) public {
+    maximumSellableTokens = _maximumSellableTokens;
+  }
 
   /**
    * Called from invest() to confirm if the curret investment does not break our cap rule.
    */
   function isBreakingCap(uint256 weiAmount, uint256 tokenAmount, uint256 weiRaisedTotal, uint256 tokensSoldTotal) public constant returns (bool limitBroken) {
-    return weiRaisedTotal > weiCap;
+    return tokensSoldTotal > maximumSellableTokens;
   }
 
   function isCrowdsaleFull() public constant returns (bool) {
-    return weiRaised >= weiCap;
+    return tokensSold >= maximumSellableTokens;
   }
 
   /**
@@ -1318,27 +1305,29 @@ contract MintedEthCappedCrowdsale is Crowdsale {
   }
 }
 
+
 /// @dev Tranche based pricing with special support for pre-ico deals.
-///      Implementing "first price" tranches, meaning, that if byers order is
+///      Implementing "first price" tranches, meaning, that if buyers order is
 ///      covering more than one tranche, the price of the lowest tranche will apply
 ///      to the whole order.
-contract EthTranchePricing is PricingStrategy, Ownable, SafeMathLib {
+contract TokenTranchePricing is PricingStrategy, Ownable, SafeMathLib {
 
-  uint public constant MAX_TRANCHES = 10;
- 
- 
+
+  uint256 public constant MAX_TRANCHES = 10;
+
   // This contains all pre-ICO addresses, and their prices (weis per token)
   mapping (address => uint256) public preicoAddresses;
-
+ 
   /**
   * Define pricing schedule using tranches.
   */
-
   struct Tranche {
+
       // Amount in weis when this tranche becomes active
-      uint amount;
-      // How many tokens per wei you will get while this tranche is active
-      uint price;
+      uint256 amount;
+
+      // How many tokens per satoshi you will get while this tranche is active
+      uint256 price;
   }
 
   // Store tranches in a fixed array, so that it can be seen in a blockchain explorer
@@ -1351,22 +1340,22 @@ contract EthTranchePricing is PricingStrategy, Ownable, SafeMathLib {
 
   /// @dev Contruction, creating a list of tranches
   /// @param _tranches uint[] tranches Pairs of (start amount, price)
-  function EthTranchePricing(uint[] _tranches) public {
-
+  function TokenTranchePricing(uint256[] _tranches) public {
     // Need to have tuples, length check
-    require(!(_tranches.length % 2 == 1 || _tranches.length >= MAX_TRANCHES*2));
+    require(_tranches.length % 2 != 1 || _tranches.length < MAX_TRANCHES*2);
+
     trancheCount = _tranches.length / 2;
+
     uint256 highestAmount = 0;
+
     for(uint256 i=0; i<_tranches.length/2; i++) {
       tranches[i].amount = _tranches[i*2];
       tranches[i].price = _tranches[i*2+1];
+
       // No invalid steps
       require(!((highestAmount != 0) && (tranches[i].amount <= highestAmount)));
       highestAmount = tranches[i].amount;
     }
-
-    // We need to start from zero, otherwise we blow up our deployment
-    require(tranches[0].amount == 0);
 
     // Last tranche price must be zero, terminating the crowdale
     require(tranches[trancheCount-1].price == 0);
@@ -1376,7 +1365,7 @@ contract EthTranchePricing is PricingStrategy, Ownable, SafeMathLib {
   ///      to 0 to disable
   /// @param preicoAddress PresaleFundCollector address
   /// @param pricePerToken How many weis one token cost for pre-ico investors
-  function setPreicoAddress(address preicoAddress, uint pricePerToken)
+  function setPreicoAddress(address preicoAddress, uint256 pricePerToken)
     public
     onlyOwner
   {
@@ -1385,7 +1374,7 @@ contract EthTranchePricing is PricingStrategy, Ownable, SafeMathLib {
 
   /// @dev Iterate through tranches. You reach end of tranches when price = 0
   /// @return tuple (time, price)
-  function getTranche(uint256 n) public constant returns (uint, uint) {
+  function getTranche(uint256 n) public constant returns (uint256, uint256) {
     return (tranches[n].amount, tranches[n].price);
   }
 
@@ -1397,15 +1386,15 @@ contract EthTranchePricing is PricingStrategy, Ownable, SafeMathLib {
     return tranches[trancheCount-1];
   }
 
-  function getPricingStartsAt() public constant returns (uint) {
+  function getPricingStartsAt() public constant returns (uint256) {
     return getFirstTranche().amount;
   }
 
-  function getPricingEndsAt() public constant returns (uint) {
+  function getPricingEndsAt() public constant returns (uint256) {
     return getLastTranche().amount;
   }
 
-  function isSane(address _crowdsale) public view returns(bool) {
+  function isSane(address _crowdsale) public constant returns(bool) {
     // Our tranches are not bound by time, so we can't really check are we sane
     // so we presume we are ;)
     // In the future we could save and track raised tokens, and compare it to
@@ -1414,36 +1403,35 @@ contract EthTranchePricing is PricingStrategy, Ownable, SafeMathLib {
   }
 
   /// @dev Get the current tranche or bail out if we are not in the tranche periods.
-  /// @param weiRaised total amount of weis raised, for calculating the current tranche
+  /// @param tokensSold total amount of tokens sold, for calculating the current tranche
   /// @return {[type]} [description]
-  function getCurrentTranche(uint256 weiRaised) private constant returns (Tranche) {
-    uint i;
+  function getCurrentTranche(uint256 tokensSold) private constant returns (Tranche) {
+    uint256 i;
+
     for(i=0; i < tranches.length; i++) {
-      if(weiRaised < tranches[i].amount) {
+      if(tokensSold < tranches[i].amount) {
         return tranches[i-1];
       }
     }
   }
 
   /// @dev Get the current price.
-  /// @param weiRaised total amount of weis raised, for calculating the current tranche
+  /// @param tokensSold total amount of tokens sold, for calculating the current tranche
   /// @return The current price or 0 if we are outside trache ranges
-  function getCurrentPrice(uint256 weiRaised) public constant returns (uint256 result) {
-    return getCurrentTranche(weiRaised).price;
+  function getCurrentPrice(uint256 tokensSold) public constant returns (uint256 result) {
+    return getCurrentTranche(tokensSold).price;
   }
 
   /// @dev Calculate the current price for buy in amount.
   function calculatePrice(uint256 value, uint256 weiRaised, uint256 tokensSold, address msgSender, uint256 decimals) public constant returns (uint256) {
 
     uint256 multiplier = 10 ** decimals;
-
     // This investor is coming through pre-ico
-    if(preicoAddresses[msgSender] > 0) {
+    if (preicoAddresses[msgSender] > 0) {
       return safeMul(value, multiplier) / preicoAddresses[msgSender];
     }
 
-    uint256 price = getCurrentPrice(weiRaised);
-    
+    uint256 price = getCurrentPrice(tokensSold);
     return safeMul(value, multiplier) / price;
   }
 

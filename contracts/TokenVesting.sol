@@ -46,9 +46,9 @@ contract TokenVesting is Allocatable, SafeMathLib {
         VestingSchedule storage vestingSchedule = vestingMap[_adr];
 
         // data validation
-        require(_principleLockAmount != 0 || _bonusLockAmount != 0 );
+        require(safeAdd(_principleLockAmount, _bonusLockAmount) > 0);
 
-        //if startAt is zero, set current time as start time.
+        //startAt is set current time as start time.
 
         vestingSchedule.startAt = block.timestamp;
         vestingSchedule.bonusLockPeriod = safeAdd(block.timestamp,_bonuslockPeriod);

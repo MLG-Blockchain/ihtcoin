@@ -1,9 +1,10 @@
 var Token = artifacts.require("./CrowdsaleToken.sol");
-var PricingStartegy = artifacts.require("./EthTranchePricing.sol");
+var PricingStartegy = artifacts.require("./TokenTranchePricing.sol");
+//var MultisigWallet = artifacts.require("./MultisigWalletConsenSys.sol");
 var MultiSigWallet = artifacts.require("./MultiSigWallet.sol");
 var Crowdsale = artifacts.require("./MintedTokenCappedCrowdsale.sol");
 var FinalizeAgent = artifacts.require("./BonusFinalizeAgent.sol");
-var TokenVesting = artifacts.require("./TokeVesting.sol");
+var TokenVesting = artifacts.require("./TokenVesting.sol");
 
 
 var debug = true;
@@ -45,8 +46,8 @@ module.exports = function(deployer, network, accounts) {
      */
     var _startTime = getUnixTimestamp('2018-03-01 09:00:00 GMT');
     var _endTime = getUnixTimestamp('2018-04-01 18:00:00 GMT');
-    var _minimumFundingGoal = etherInWei(0);
-    var _cap = etherInWei(5000);
+    var _minimumFundingGoal = etherInWei(1);
+    var _cap = tokenInSmallestUnit(1000000,_tokenDecimals);
 
     /**
      * Pricing tranches for pricing strategy 
@@ -65,7 +66,7 @@ module.exports = function(deployer, network, accounts) {
      * then this situation will not arise. 
      */
     var _tranches = [
-        etherInWei(0), tokenPriceInWeiFromTokensPerEther(10000),
+        tokenInSmallestUnit(0,_tokenDecimals), tokenPriceInWeiFromTokensPerEther(10000),
         _cap, 0
     ];
 
@@ -205,12 +206,12 @@ module.exports = function(deployer, network, accounts) {
         if (showURL) console.log("Wallet URL is: " + getEtherScanUrl(network, multisigWalletInstance.address, "address"));
         if (showURL) console.log("Transaction URL is: " + getEtherScanUrl(network, multisigWalletInstance.transactionHash, "tx"));
         if (showABI) console.log("MultiSigWallet ABI is: ", JSON.stringify(multisigWalletInstance.abi));
-        if (debug) console.log("*************  Deploying MintedEthCappedCrowdsale  ************** \n");
-        return Crowdsale.new(tokenInstance.address, pricingInstance.address, multisigWalletInstance.address, _startTime, _endTime, _minimumFundingGoal, _cap);
+        if (debug) console.log("*************  Deploying MintedTokenCappedCrowdsale  ************** \n");
+        return Crowdsale.new(tokenInstance.address, pricingInstance.address, multisigWalletInstance.address, _startTime, _endTime, _minimumFundingGoal, _cap, tokenVestingInstance.address);
     }).then(function(Instance) {
         crowdsaleInstance = Instance;
         if (debug) console.log("MintedEthCappedCrowdsale Parameters are:");
-        if (debug) console.log(tokenInstance.address, pricingInstance.address, multisigWalletInstance.address, _startTime, _endTime, _minimumFundingGoal, _cap);
+        if (debug) console.log(tokenInstance.address, pricingInstance.address, multisigWalletInstance.address, _startTime, _endTime, _minimumFundingGoal, _cap,tokenVestingInstance.address);
         if (debug) console.log("MintedEthCappedCrowdsale address is: ", crowdsaleInstance.address);
         if (showURL) console.log("Crowdsale URL is: " + getEtherScanUrl(network, crowdsaleInstance.address, "address"));
         if (showURL) console.log("Transaction URL is: " + getEtherScanUrl(network, crowdsaleInstance.transactionHash, "tx"));
@@ -248,11 +249,11 @@ module.exports = function(deployer, network, accounts) {
     }).then(function() {
         console.log("BonusFinalizeAgent is set as Finalize Agent in MintedTokenCappedCrowdsale. Moving ahead...");
 
-        return tokenVestingInstance.setAllocateAgent(crowdsaleInstance.address);
+        return tokenVestingInstance.setAllocateAgent(crowdsaleInstance.address,true);
     }).then(function() {
         console.log("Crowdsale is set as allocate agent in Token Vesting. Moving ahead...");
 
-        return tokenInstance.setTransferAgent(tokenVestingInstance.address);
+        return tokenInstance.setTransferAgent(tokenVestingInstance.address,true);
     }).then(function() {
         console.log("Token Vesting is set as transfer agent in Token. Moving ahead...");
 

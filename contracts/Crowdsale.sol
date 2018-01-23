@@ -172,6 +172,8 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
     if(getState() == State.PreFunding) {
       // Are we whitelisted for early deposit
       require(earlyParticipantWhitelist[receiver]);
+      uint256 multiplier = 10 ** token.decimals();
+      require(msg.value >= safeMul(15,multiplier) && msg.value <= safeMul(50,multiplier));
     
     } else if(getState() == State.Funding) {
       // Retail participants can only come in when the crowdsale is running
@@ -201,9 +203,6 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
 
     // Check that we did not bust the cap
     require(!isBreakingCap(weiAmount, tokenAmount, weiRaised, tokensSold));
-    // if(isBreakingCap(weiAmount, tokenAmount, weiRaised, tokensSold)) {
-    //   throw;
-    // }
 
     assignTokens(receiver, tokenAmount);
 
@@ -228,10 +227,8 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
    * @param weiPrice Price of a single full token in wei
    *
    */
-  function preallocate(address receiver, uint256 tokenAmount, uint256 weiPrice, uint256 principleLockPercentage, uint256 principleLockPeriod, uint256 bonusLockPercentage, uint256 bonusLockPeriod) public onlyAllocateAgent {
+  function preallocate(address receiver, uint256 tokenAmount, uint256 weiPrice, uint256 principleLockAmount, uint256 principleLockPeriod, uint256 bonusLockAmount, uint256 bonusLockPeriod) public onlyAllocateAgent {
 
-    // cannot lock more than total tokens
-    require(safeAdd(principleLockPercentage,bonusLockPercentage) <= 100);
 
     uint256 weiAmount = (weiPrice * tokenAmount)/10**uint256(token.decimals()); // This can be also 0, we give out tokens for free
 
@@ -241,26 +238,24 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
     investedAmountOf[receiver] = safeAdd(investedAmountOf[receiver],weiAmount);
     tokenAmountOf[receiver] = safeAdd(tokenAmountOf[receiver],tokenAmount);
 
+    // cannot lock more than total tokens
+    uint256 totalLockAmount = safeAdd(principleLockAmount, bonusLockAmount);
+    require(totalLockAmount <= tokenAmount);
+    
     // assign locked token to Vesting contract
-    if (safeAdd(principleLockPercentage,bonusLockPercentage) > 0) {
+    if (totalLockAmount > 0) {
 
-      if (principleLockPercentage > 0) {
+      if (principleLockAmount > 0) {
         require(principleLockPeriod > 0);
       }
-      if (bonusLockPercentage > 0) {
+      if (bonusLockAmount > 0) {
         require(bonusLockPeriod > 0);
       }
 
-      uint256 principleAmount = safeDiv(safeMul(tokenAmount, 100), safeAdd(bonusLockPercentage, 100));
-      uint256 bonusLockAmount = safeDiv(safeMul(bonusLockPercentage, principleAmount), 100);
-      uint256 principleLockAmount = safeDiv(safeMul(principleLockPercentage, principleAmount), 100);
-
-      uint256 totalLockAmount = safeAdd(principleLockAmount, bonusLockAmount);
       TokenVesting tokenVesting = TokenVesting(tokenVestingAddress);
       
       // to prevent minting of tokens which will be useless as vesting amount cannot be updated
       require(!tokenVesting.isVestingSet(receiver));
-      require(totalLockAmount <= tokenAmount);
       assignTokens(tokenVestingAddress,totalLockAmount);
       
       // set vesting with default schedule
@@ -281,9 +276,7 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
    */
   function investWithCustomerId(address addr, uint128 customerId) public payable {
     require(!requiredSignedAddress);
-    //if(requiredSignedAddress) throw; // Crowdsale allows only server-side signed participants
     require(customerId != 0);
-    //if(customerId == 0) throw;  // UUIDv4 sanity check
     investInternal(addr, customerId);
   }
 
