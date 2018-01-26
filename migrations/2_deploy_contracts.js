@@ -1,8 +1,7 @@
 var Token = artifacts.require("./CrowdsaleToken.sol");
-var PricingStartegy = artifacts.require("./TokenTranchePricing.sol");
-//var MultisigWallet = artifacts.require("./MultisigWalletConsenSys.sol");
+var PricingStartegy = artifacts.require("./EthTranchePricing.sol");
 var MultiSigWallet = artifacts.require("./MultiSigWallet.sol");
-var Crowdsale = artifacts.require("./MintedTokenCappedCrowdsale.sol");
+var Crowdsale = artifacts.require("./MintedEthCappedCrowdsale.sol");
 var FinalizeAgent = artifacts.require("./BonusFinalizeAgent.sol");
 var TokenVesting = artifacts.require("./TokenVesting.sol");
 
@@ -47,7 +46,7 @@ module.exports = function(deployer, network, accounts) {
     var _startTime = getUnixTimestamp('2018-03-01 09:00:00 GMT');
     var _endTime = getUnixTimestamp('2018-04-01 18:00:00 GMT');
     var _minimumFundingGoal = etherInWei(1);
-    var _cap = tokenInSmallestUnit(1000000,_tokenDecimals);
+    var _cap = tokenInSmallestUnit(50000,_tokenDecimals);
 
     /**
      * Pricing tranches for pricing strategy 
@@ -66,7 +65,7 @@ module.exports = function(deployer, network, accounts) {
      * then this situation will not arise. 
      */
     var _tranches = [
-        tokenInSmallestUnit(0,_tokenDecimals), tokenPriceInWeiFromTokensPerEther(10000),
+        etherInWei(0), tokenPriceInWeiFromTokensPerEther(10000),
         _cap, 0
     ];
 

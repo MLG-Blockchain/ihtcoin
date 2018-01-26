@@ -117,10 +117,10 @@ contract('Token Vesting', function(accounts) {
     //     await vestingInstance.setAllocateAgent(accounts[1],true);
     //     await vestingInstance.setVesting(accounts[2],_principleLockAmount,_bonusLockAmount,_principleLockPeriod,_bonusLockPeriod,{from : accounts[1]});
 
-    //     await timer(60);
+    //     await timer(70);
 
     //     await vestingInstance.releaseVestedTokens(accounts[2]);
-    //     assert.equal(await tokenInstance.balanceOf(accounts[2]), _principleLockAmount);
+    //     // assert.equal(await tokenInstance.balanceOf(accounts[2]), _principleLockAmount);
 
     // });
 
@@ -132,10 +132,10 @@ contract('Token Vesting', function(accounts) {
     //     await vestingInstance.setAllocateAgent(accounts[1],true);
     //     await vestingInstance.setVesting(accounts[2],_principleLockAmount,_bonusLockAmount,_principleLockPeriod,_bonusLockPeriod,{from : accounts[1]});
 
-    //     await timer(100);
+    //     await timer(150);
 
     //     await vestingInstance.releaseVestedTokens(accounts[2]);
-    //     assert.equal(await tokenInstance.balanceOf(accounts[2]), tokenInSmallestUnit(120));
+    //     // assert.equal(await tokenInstance.balanceOf(accounts[2]), tokenInSmallestUnit(120));
 
     // });
 
