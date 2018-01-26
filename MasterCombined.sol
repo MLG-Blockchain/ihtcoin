@@ -891,8 +891,8 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
     if (getState() == State.PreFunding) {
         // Are we whitelisted for early deposit
         require(earlyParticipantWhitelist[receiver]);
-        require(weiAmount >= safeMul(1, uint(10) ** 18));
-        require(weiAmount <= safeMul(3, uint(10) ** 18));
+        // require(weiAmount >= safeMul(1, uint(10) ** 18));
+        // require(weiAmount <= safeMul(3, uint(10) ** 18));
         tokenAmount = safeDiv(safeMul(weiAmount, uint(10) ** token.decimals()), earlyPariticipantWeiPrice);
         
         if (investedAmountOf[receiver] == 0) {
