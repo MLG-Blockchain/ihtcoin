@@ -1122,6 +1122,19 @@ contract Crowdsale is Allocatable, Haltable, SafeMathLib {
     Whitelisted(addr, status);
   }
 
+  function setWhiteList(address[] _participants) public onlyAllocateAgent {
+      
+      require(_participants.length > 0);
+      uint256 participants = _participants.length;
+
+      for (uint256 j=0; j<participants; j++) {
+      require(_participants[j] != 0);
+      earlyParticipantWhitelist[_participants[j]] = true;
+      Whitelisted(_participants[j], true);
+    }
+
+  }
+
   /**
    * Allow crowdsale owner to close early or extend the crowdsale.
    *
