@@ -1,0 +1,21 @@
+{
+  "name": "ticker",
+  "version": "1.0.0",
+  "description": "Toshblocks ticker for ICO real time update",
+  "main": "tickerServer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "shuchi tyagi",
+  "license": "ISC",
+  "engines": {
+    "node": "*"
+  },
+  "dependencies": {
+    "restify": "6.0.1",
+    "ethereumjs-testrpc": "4.1.1",
+    "ethereumjs-util": "^5.1.2",
+    "web3": "^0.19.0",
+    "body-parser": "1.18.1"
+  }
+}
